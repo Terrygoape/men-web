@@ -284,8 +284,8 @@ async function load(){
     const byId=new Map(idx.memories.map(m=>[m.path,m]));
     const dir=await (await gh(`contents/memories?ref=${encodeURIComponent(cfg.branch)}`)).json();
     const files=dir.filter(f=>f.name.endsWith(".md"));
-    const missing=files.filter(f=>!byId.has(f.path));           // 索引还没来得及更新的新文件
-    for(const f of missing.slice(0,30)){const r=parse(await getRaw(f.path),f.path);if(r)byId.set(f.path,r)}
+    const stale=files.filter(f=>byId.get(f.path)?.sha!==f.sha);   // 索引里没有或已过时的文件，直接读
+    for(const f of stale.slice(0,50)){const r=parse(await getRaw(f.path),f.path);if(r)byId.set(f.path,{...r,sha:f.sha})}
     const live=new Set(files.map(f=>f.path));
     mem=[...byId.values()].filter(m=>live.has(m.path));
     try{const c=(await (await gh(`commits?per_page=1&sha=${encodeURIComponent(cfg.branch)}`)).json())[0];$("#lastCommit").textContent=new Date(c.commit.committer.date).toLocaleString("zh-CN",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"})}catch(e){}
