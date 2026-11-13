@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>我的记忆库</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* 布局：手机优先的单列工具；顶部状态条 + 底部四个标签页；卡片只用于记忆条目 */
+:root{
+  --bg:#f3f4f7; --surface:#ffffff; --ink:#1b2130; --muted:#646c7e; --line:#dde1ea;
+  --accent:#2a46b0; --accent-soft:#e6eafb;
+  --ok:#1f7a4d; --ok-soft:#e2f3ea; --warn:#9a6200; --warn-soft:#fbf0d9; --dead:#8a8f9c; --dead-soft:#eceef2;
+  --f-body:"Noto Sans SC",-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,Menlo,monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#11141b; --surface:#1a1e28; --ink:#e7e9f0; --muted:#9aa1b2; --line:#2c3242;
+    --accent:#8ea3ff; --accent-soft:#232c4d;
+    --ok:#6fd19e; --ok-soft:#173326; --warn:#f0bf62; --warn-soft:#3a2e14; --dead:#7d8394; --dead-soft:#242833;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#11141b; --surface:#1a1e28; --ink:#e7e9f0; --muted:#9aa1b2; --line:#2c3242;
+  --accent:#8ea3ff; --accent-soft:#232c4d;
+  --ok:#6fd19e; --ok-soft:#173326; --warn:#f0bf62; --warn-soft:#3a2e14; --dead:#7d8394; --dead-soft:#242833;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{background:var(--bg);color:var(--ink);font:15px/1.6 var(--f-body);-webkit-text-size-adjust:100%}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.wrap{max-width:720px;margin:0 auto;padding:0 16px 96px}
+.proto{background:var(--warn-soft);color:var(--warn);font-size:13px;padding:8px 16px;text-align:center}
+header{padding:20px 0 12px;display:grid;gap:10px}
+h1{font-size:22px;margin:0;text-wrap:balance}
+h2{font-size:17px;margin:24px 0 8px;text-wrap:balance}
+.stat{display:flex;flex-wrap:wrap;gap:8px 16px;font-size:13px;color:var(--muted)}
+.stat b{color:var(--ink);font-weight:500;font-variant-numeric:tabular-nums}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--ok);margin-right:6px;vertical-align:1px}
+.search{display:flex;gap:8px}
+.search input{flex:1;min-width:0;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
+.chips{display:flex;gap:6px;overflow-x:auto;padding:10px 0 4px;scrollbar-width:none}
+.chip{flex:none;border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:4px 12px;font-size:13px;cursor:pointer}
+.chip[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--surface)}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:13px;color:var(--muted)}
+.row select{padding:4px 8px;border:1px solid var(--line);border-radius:8px;background:var(--surface)}
+.list{display:grid;gap:10px;margin-top:12px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 14px;display:grid;gap:8px;grid-template-columns:auto 1fr}
+.card.dead{opacity:.62}
+.card.dead .txt{text-decoration:line-through;text-decoration-color:var(--dead)}
+.card input[type=checkbox]{width:18px;height:18px;margin-top:3px;accent-color:var(--accent)}
+.txt{margin:0;word-break:break-word}
+.meta{grid-column:2;display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;font-size:12px;color:var(--muted)}
+.mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.pill{font-size:12px;padding:1px 8px;border-radius:6px;font-weight:500}
+.t-规则{background:var(--accent-soft);color:var(--accent)}
+.t-决策{background:var(--ok-soft);color:var(--ok)}
+.t-偏好{background:var(--warn-soft);color:var(--warn)}
+.t-事实{background:var(--dead-soft);color:var(--ink)}
+.s-dead{background:var(--dead-soft);color:var(--dead)}
+.acts{grid-column:2;display:flex;gap:8px;flex-wrap:wrap}
+.btn{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:5px 12px;font-size:13px;cursor:pointer}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--surface)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.sup{grid-column:2;font-size:12px;color:var(--muted)}
+.empty{color:var(--muted);text-align:center;padding:32px 0}
+.selbar{position:fixed;left:0;right:0;bottom:64px;display:none;justify-content:center;padding:0 16px}
+.selbar.on{display:flex}
+body:not(.on-memories) .selbar{display:none}
+.selbar div{background:var(--ink);color:var(--bg);border-radius:12px;padding:10px 14px;display:flex;gap:12px;align-items:center;max-width:688px;width:100%;box-shadow:0 6px 20px rgba(0,0,0,.25)}
+.selbar span{flex:1;font-size:14px}
+.selbar .btn{background:var(--accent);border-color:var(--accent);color:#fff}
+nav{position:fixed;left:0;right:0;bottom:0;background:var(--surface);border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(4,1fr);padding-bottom:env(safe-area-inset-bottom)}
+nav a{text-align:center;padding:10px 0 12px;font-size:13px;color:var(--muted);text-decoration:none}
+nav a[aria-current="page"]{color:var(--accent);font-weight:700}
+.view{display:none}.view.on{display:block}
+form{display:grid;gap:12px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px}
+label{display:grid;gap:4px;font-size:13px;color:var(--muted)}
+textarea,form select{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--bg)}
+textarea{min-height:110px;resize:vertical}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+@media (max-width:480px){.grid3{grid-template-columns:1fr 1fr}}
+.hint{font-size:13px;color:var(--muted);margin:4px 0 0}
+.tbl{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:12px}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{word-break:break-word}
+th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:12px;color:var(--muted);font-weight:500}
+tr:last-child td{border-bottom:0}
+.st{font-size:12px;padding:1px 8px;border-radius:6px;white-space:nowrap}
+.st.auto{background:var(--ok-soft);color:var(--ok)}
+.st.test{background:var(--warn-soft);color:var(--warn)}
+.st.web{background:var(--accent-soft);color:var(--accent)}
+.bk{display:grid;gap:10px}
+.bk .card{grid-template-columns:1fr auto}
+.bk .card .meta,.bk .card .sup{grid-column:1/-1}
+.toast{position:fixed;left:50%;top:16px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:8px 16px;border-radius:999px;font-size:14px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:9}
+.toast.on{opacity:1}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:flex-end;justify-content:center;z-index:8}
+.modal.on{display:flex}
+.sheet{background:var(--surface);width:100%;max-width:720px;border-radius:16px 16px 0 0;padding:16px 16px calc(16px + env(safe-area-inset-bottom));display:grid;gap:10px;max-height:80%;overflow:auto}
+.sheet pre{white-space:pre-wrap;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:12px;font:13px/1.6 var(--f-mono);margin:0}
+@media (prefers-reduced-motion:reduce){.toast{transition:none}}
+</style>
+<style>
+.banner{background:var(--warn-soft);color:var(--warn);font-size:13px;padding:8px 16px;text-align:center}
+.banner.err{background:var(--dead-soft);color:var(--ink)}
+.banner a{color:inherit}
+form input[type=text],form input[type=password]{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--bg)}
+.busy{opacity:.6;pointer-events:none}
+code{font-family:var(--f-mono);font-size:13px;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:1px 6px;word-break:break-all}
+ol.steps{padding-left:20px;display:grid;gap:6px;margin:8px 0}
+</style>
+</head>
+<body>
+<div class="banner" id="banner" hidden></div>
+<div class="wrap">
+  <header>
+    <h1>我的记忆库</h1>
+    <div class="stat">
+      <span id="stConn"><span class="dot"></span>未连接</span>
+      <span>有效记忆 <b id="cnt">0</b> 条</span>
+      <span>最近修改 <b class="mono" id="lastCommit">—</b></span>
+    </div>
+  </header>
+
+  <section class="view" id="v-memories">
+    <div class="search"><input id="q" type="search" placeholder="搜索记忆，例如：主控、ARPU、回答风格" aria-label="搜索记忆"><button class="btn" id="reload" type="button">刷新</button></div>
+    <div class="chips" id="typeChips" role="group" aria-label="按类型筛选"></div>
+    <div class="row">
+      <label for="fProj" style="display:inline">项目</label>
+      <select id="fProj"><option value="">全部</option></select>
+      <label for="fSrc" style="display:inline">来源</label>
+      <select id="fSrc"><option value="">全部</option></select>
+      <label style="display:inline-flex;align-items:center;gap:4px"><input type="checkbox" id="fDead">显示已作废</label>
+    </div>
+    <div class="list" id="list"><p class="empty">加载中…</p></div>
+  </section>
+
+  <section class="view" id="v-add">
+    <h2>存入一条记忆</h2>
+    <form id="addForm">
+      <label for="aText">内容（从任何 AI 的回答里复制要点，粘贴到这里）
+        <textarea id="aText" required placeholder="例如：Gate 2 只考核 hub 段延迟 ≤500ms，不考核端到端"></textarea>
+      </label>
+      <div class="grid3">
+        <label for="aType">类型<select id="aType"></select></label>
+        <label for="aProj">项目<select id="aProj"></select></label>
+        <label for="aSrc">来自哪个 AI<select id="aSrc"></select></label>
+      </div>
+      <label for="aSup">它推翻了哪条旧记忆？（可不选，选了旧的会标“已作废”）
+        <select id="aSup"><option value="">不推翻任何记忆</option></select>
+      </label>
+      <button class="btn primary" type="submit" id="aBtn">保存到 GitHub</button>
+    </form>
+    <p class="hint">保存后会在仓库里新建一个文件。索引约 1 分钟后自动更新，本页会立即显示。</p>
+  </section>
+
+  <section class="view" id="v-connect">
+    <h2>各个 AI 怎么用</h2>
+    <div class="tbl"><table>
+      <thead><tr><th>AI</th><th>方式</th><th>怎么做</th></tr></thead>
+      <tbody>
+        <tr><td>Claude Code / Codex / Cursor</td><td><span class="st auto">直连</span></td><td>打开这个仓库，它们会读 <code>AGENTS.md</code>，按规则查和存</td></tr>
+        <tr><td>Claude 网页 / 手机</td><td><span class="st test">待实测</span></td><td>用 GitHub 连接器读取 <code>INDEX.md</code>；写入能否直连待测</td></tr>
+        <tr><td>ChatGPT / Gemini</td><td><span class="st test">待实测</span></td><td>同上，先测 GitHub 连接器能否读取</td></tr>
+        <tr><td>Muse / 豆包 / Kimi / DeepSeek</td><td><span class="st web">网页</span></td><td>在本页搜索 → 勾选 → 复制给 AI；回答里的要点粘贴到“存入”</td></tr>
+      </tbody>
+    </table></div>
+    <h2>给任何 AI 一句话</h2>
+    <p class="hint">把下面这段发给任何能读网址或文件的 AI：</p>
+    <pre class="tbl" style="padding:12px;white-space:pre-wrap;margin:0;font:13px/1.6 var(--f-mono)" id="aiPrompt"></pre>
+    <p><button class="btn" id="copyPrompt" type="button">复制这段话</button></p>
+  </section>
+
+  <section class="view" id="v-settings">
+    <h2>连接 GitHub</h2>
+    <form id="setForm">
+      <label for="sRepo">仓库（用户名/仓库名）<input type="text" id="sRepo" placeholder="用户名/仓库名" autocomplete="off" autocapitalize="off" spellcheck="false" required></label>
+      <label for="sBranch">分支<input type="text" id="sBranch" value="main" autocomplete="off" autocapitalize="off" spellcheck="false" required></label>
+      <label for="sTok">访问令牌（只保存在这台设备的浏览器里）<input type="password" id="sTok" autocomplete="off" required></label>
+      <button class="btn primary" type="submit">保存并连接</button>
+      <button class="btn" type="button" id="sForget">从这台设备删除令牌</button>
+    </form>
+    <h2>怎么拿到访问令牌</h2>
+    <ol class="steps hint">
+      <li>打开 GitHub → Settings → Developer settings → Fine-grained tokens → Generate new token</li>
+      <li>Repository access 选 <b>Only select repositories</b>，只勾记忆仓库</li>
+      <li>Permissions → Contents 选 <b>Read and write</b>，其他都不用开</li>
+      <li>有效期建议 1 年；复制令牌，粘贴到上面</li>
+    </ol>
+    <p class="hint">每台设备（iPhone、iPad、两台 Mac）各设置一次。设备丢了就去 GitHub 撤销这个令牌。</p>
+  </section>
+</div>
+
+<div class="selbar" id="selbar"><div><span id="selTxt"></span><button class="btn" id="selCopy" type="button">复制给 AI</button><button class="btn" id="selClear" type="button">取消</button></div></div>
+
+<nav aria-label="页面">
+  <a href="#memories" data-v="memories">记忆</a>
+  <a href="#add" data-v="add">存入</a>
+  <a href="#connect" data-v="connect">接入</a>
+  <a href="#settings" data-v="settings">设置</a>
+</nav>
+
+<div class="modal" id="modal" role="dialog" aria-modal="true" aria-labelledby="mTitle">
+  <div class="sheet">
+    <strong id="mTitle">复制给 AI 的内容</strong>
+    <pre id="mBody"></pre>
+    <div class="acts" style="grid-column:auto"><button class="btn primary" id="mCopy" type="button">复制</button><button class="btn" id="mClose" type="button">关闭</button></div>
+    <p class="hint" id="mHint"></p>
+  </div>
+</div>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+const TYPES=["规则","决策","偏好","事实"];
+const PROJS=["osiao","个人","通用"];
+const SRCS=["Claude","Claude Code","ChatGPT","Gemini","Muse","豆包","Kimi","DeepSeek","手动"];
+const LS="aimem.cfg";
+let cfg={repo:"",branch:"main",token:""}, mem=[], sel=new Set(), fType="";
+const $=s=>document.querySelector(s);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+function toast(m){const t=$("#toast");t.textContent=m;t.classList.add("on");clearTimeout(toast.h);toast.h=setTimeout(()=>t.classList.remove("on"),2000)}
+function banner(m,err){const b=$("#banner");if(!m){b.hidden=true;return}b.hidden=false;b.className="banner"+(err?" err":"");b.innerHTML=m}
+function opts(el,arr){arr.forEach(v=>{const o=document.createElement("option");o.value=o.textContent=v;el.appendChild(o)})}
+try{Object.assign(cfg,JSON.parse(localStorage.getItem(LS)||"{}"))}catch(e){}
+
+/* ---------- GitHub ---------- */
+const b64e=s=>{const b=new TextEncoder().encode(s);let r="";for(let i=0;i<b.length;i+=8192)r+=String.fromCharCode.apply(null,b.subarray(i,i+8192));return btoa(r)};
+const b64d=s=>new TextDecoder().decode(Uint8Array.from(atob(s.replace(/\n/g,"")),c=>c.charCodeAt(0)));
+async function gh(path,opt={}){
+  const r=await fetch(`https://api.github.com/repos/${cfg.repo}/${path}`,{...opt,cache:"no-store",headers:{Authorization:`Bearer ${cfg.token}`,Accept:"application/vnd.github+json","X-GitHub-Api-Version":"2022-11-28",...(opt.headers||{})}});
+  if(!r.ok){let m=r.status+"";try{m+=" "+(await r.json()).message}catch(e){}
+    const hint=r.status===401?"令牌无效或已过期":r.status===404?"找不到仓库或文件，检查仓库名和令牌权限":r.status===409||r.status===422?"文件刚被别处改过，请刷新后重试":"GitHub 返回错误";
+    throw new Error(`${hint}（${m}）`)}
+  return r;
+}
+const getRaw=p=>gh(`contents/${p}?ref=${encodeURIComponent(cfg.branch)}`,{headers:{Accept:"application/vnd.github.raw"}}).then(r=>r.text());
+async function getFile(p){const j=await (await gh(`contents/${p}?ref=${encodeURIComponent(cfg.branch)}`)).json();return{text:b64d(j.content),sha:j.sha}}
+async function putFile(p,text,message,sha){
+  await gh(`contents/${p}`,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({message,content:b64e(text),branch:cfg.branch,...(sha?{sha}:{})})});
+}
+function parse(text,path){
+  const t=text.replace(/\r\n/g,"\n");const end=t.indexOf("\n---",4);if(!t.startsWith("---\n")||end<0)return null;
+  const m={};t.slice(4,end).split("\n").forEach(l=>{const i=l.indexOf(":");if(i>0)m[l.slice(0,i).trim()]=l.slice(i+1).trim()});
+  return{id:m.id||path.split("/").pop().replace(/\.md$/,""),type:m.type||"",project:m.project||"",source:m.source||"",date:m.date||"",status:m.status||"有效",supersedes:m.supersedes||"",superseded_by:m.superseded_by||"",text:t.slice(end+4).trim(),path};
+}
+function setField(text,k,v){const re=new RegExp(`^${k}:.*$`,"m");return re.test(text)?text.replace(re,`${k}: ${v}`):text.replace(/\n---/,`\n${k}: ${v}\n---`)}
+
+async function load(){
+  if(!cfg.repo||!cfg.token){banner('还没连接 GitHub。<a href="#settings">去设置</a>');$("#list").innerHTML='<p class="empty">连接 GitHub 后这里会显示你的记忆。</p>';$("#stConn").innerHTML='<span class="dot" style="background:var(--dead)"></span>未连接';return}
+  $("#list").classList.add("busy");
+  try{
+    let idx={memories:[]};try{idx=JSON.parse(await getRaw("index.json"))}catch(e){if(!/找不到/.test(e.message))throw e}
+    const byId=new Map(idx.memories.map(m=>[m.path,m]));
+    const dir=await (await gh(`contents/memories?ref=${encodeURIComponent(cfg.branch)}`)).json();
+    const files=dir.filter(f=>f.name.endsWith(".md"));
+    const missing=files.filter(f=>!byId.has(f.path));           // 索引还没来得及更新的新文件
+    for(const f of missing.slice(0,30)){const r=parse(await getRaw(f.path),f.path);if(r)byId.set(f.path,r)}
+    const live=new Set(files.map(f=>f.path));
+    mem=[...byId.values()].filter(m=>live.has(m.path));
+    try{const c=(await (await gh(`commits?per_page=1&sha=${encodeURIComponent(cfg.branch)}`)).json())[0];$("#lastCommit").textContent=new Date(c.commit.committer.date).toLocaleString("zh-CN",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"})}catch(e){}
+    $("#stConn").innerHTML='<span class="dot"></span>已连接 '+esc(cfg.repo);banner("");
+  }catch(e){banner("读取失败："+esc(e.message)+'。<a href="#settings">检查设置</a>',true)}
+  finally{$("#list").classList.remove("busy");render()}
+}
+
+/* ---------- 界面 ---------- */
+function render(){
+  const q=$("#q").value.trim().toLowerCase(),p=$("#fProj").value,s=$("#fSrc").value,showDead=$("#fDead").checked;
+  const dead=m=>m.status==="已作废";
+  const rows=mem.filter(m=>(!fType||m.type===fType)&&(!p||m.project===p)&&(!s||m.source===s)&&(showDead||!dead(m))&&(!q||(m.text+" "+m.project+" "+m.type).toLowerCase().includes(q)))
+               .sort((a,b)=>(b.date+b.id).localeCompare(a.date+a.id));
+  $("#cnt").textContent=mem.filter(m=>!dead(m)).length;
+  if(cfg.repo&&cfg.token)$("#list").innerHTML=rows.length?rows.map(m=>{
+    const by=m.superseded_by&&mem.find(z=>z.id===m.superseded_by), rep=m.supersedes&&mem.find(z=>z.id===m.supersedes);
+    return `<article class="card ${dead(m)?"dead":""}">
+      <input type="checkbox" aria-label="选中这条" data-sel="${esc(m.id)}" ${sel.has(m.id)?"checked":""} ${dead(m)?"disabled":""}>
+      <p class="txt">${esc(m.text)}</p>
+      <div class="meta"><span class="pill t-${esc(m.type)}">${esc(m.type||"未分类")}</span><span>${esc(m.project)}</span><span>来自 ${esc(m.source)}</span><span class="mono">${esc(m.date)}</span>${dead(m)?'<span class="pill s-dead">已作废</span>':""}</div>
+      ${by?`<div class="sup">已被新记忆取代：${esc(by.text)}</div>`:""}
+      ${rep?`<div class="sup">取代了旧记忆：${esc(rep.text)}</div>`:""}
+      <div class="acts">${dead(m)?`<button class="btn" data-revive="${esc(m.id)}" type="button">恢复有效</button>`:`<button class="btn" data-copy="${esc(m.id)}" type="button">复制</button><button class="btn" data-kill="${esc(m.id)}" type="button">标为作废</button>`}</div>
+    </article>`}).join(""):`<p class="empty">没有找到匹配的记忆。换个关键词，或者清掉筛选。</p>`;
+  const n=sel.size;$("#selbar").classList.toggle("on",n>0);$("#selTxt").textContent=`已选 ${n} 条`;
+  const sup=$("#aSup"),cur=sup.value;sup.length=1;mem.filter(m=>!dead(m)).forEach(m=>{const o=document.createElement("option");o.value=m.id;o.textContent=m.text.slice(0,40)+(m.text.length>40?"…":"");sup.appendChild(o)});sup.value=cur;
+  const pj=$("#fProj"),pv=pj.value,all=[...new Set([...PROJS,...mem.map(m=>m.project).filter(Boolean)])];pj.length=1;opts(pj,all);pj.value=pv;
+}
+const brief=list=>"以下是我的背景记忆，请在回答时参考：\n"+list.map(m=>`- [${m.type}·${m.project}] ${m.text}`).join("\n");
+function showCopy(text,hint){$("#mBody").textContent=text;$("#mHint").textContent=hint||"粘贴到豆包、Kimi、Muse 等任何 AI 的对话框里。";$("#modal").classList.add("on");$("#mCopy").focus()}
+async function copy(text){try{await navigator.clipboard.writeText(text);toast("已复制")}catch(e){showCopy(text,"浏览器不允许自动复制：请长按上面的文字手动复制。")}}
+
+async function setStatus(m,status,by){
+  const f=await getFile(m.path);let t=setField(f.text,"status",status);t=setField(t,"superseded_by",by||"");
+  await putFile(m.path,t,`${status==="已作废"?"作废":"恢复"}记忆：${m.text.slice(0,30)}`,f.sha);
+  m.status=status;m.superseded_by=by||"";
+}
+function newId(){const d=new Date(),z=n=>String(n).padStart(2,"0");return `${d.getFullYear()}${z(d.getMonth()+1)}${z(d.getDate())}-${z(d.getHours())}${z(d.getMinutes())}${z(d.getSeconds())}-${Math.random().toString(36).slice(2,6).padEnd(4,"0")}`}
+const today=()=>{const d=new Date(),z=n=>String(n).padStart(2,"0");return `${d.getFullYear()}-${z(d.getMonth()+1)}-${z(d.getDate())}`};
+
+$("#list").addEventListener("click",async e=>{
+  const b=e.target.closest("button,input");if(!b)return;
+  if(b.dataset.sel){const id=b.dataset.sel;b.checked?sel.add(id):sel.delete(id);render();return}
+  if(b.dataset.copy){copy(mem.find(m=>m.id===b.dataset.copy).text);return}
+  const id=b.dataset.kill||b.dataset.revive;if(!id)return;
+  const m=mem.find(z=>z.id===id);b.disabled=true;
+  try{await setStatus(m,b.dataset.kill?"已作废":"有效","");sel.delete(id);toast(b.dataset.kill?"已标为作废，文件仍保留":"已恢复")}
+  catch(err){toast("没保存成功："+err.message);b.disabled=false}
+  render();
+});
+$("#addForm").addEventListener("submit",async e=>{
+  e.preventDefault();const x=$("#aText").value.trim();if(!x)return;
+  if(!cfg.token){location.hash="settings";return}
+  const btn=$("#aBtn");btn.disabled=true;btn.textContent="保存中…";
+  const id=newId(),supId=$("#aSup").value,path=`memories/${id}.md`;
+  const m={id,type:$("#aType").value,project:$("#aProj").value,source:$("#aSrc").value,date:today(),status:"有效",supersedes:supId,superseded_by:"",text:x,path};
+  const file=`---\nid: ${id}\ntype: ${m.type}\nproject: ${m.project}\nsource: ${m.source}\ndate: ${m.date}\nstatus: 有效\nsupersedes: ${supId}\nsuperseded_by:\n---\n${x}\n`;
+  try{
+    await putFile(path,file,`新增记忆：${x.slice(0,30)}`);mem.push(m);
+    if(supId){const old=mem.find(z=>z.id===supId);try{await setStatus(old,"已作废",id)}catch(err){toast("新记忆已存，但旧记忆没标上作废："+err.message)}}
+    $("#aText").value="";$("#aSup").value="";render();location.hash="memories";toast(supId?"已保存，旧记忆已作废":"已保存到 GitHub");
+  }catch(err){toast("没保存成功："+err.message)}
+  finally{btn.disabled=false;btn.textContent="保存到 GitHub"}
+});
+$("#setForm").addEventListener("submit",e=>{
+  e.preventDefault();
+  cfg={repo:$("#sRepo").value.trim().replace(/^https?:\/\/github\.com\//,"").replace(/\/$/,""),branch:$("#sBranch").value.trim()||"main",token:$("#sTok").value.trim()};
+  try{localStorage.setItem(LS,JSON.stringify(cfg))}catch(err){toast("这个浏览器不能保存设置，刷新后需重新填写")}
+  location.hash="memories";fillPrompt();load();
+});
+$("#sForget").onclick=()=>{try{localStorage.removeItem(LS)}catch(e){}cfg={repo:"",branch:"main",token:""};$("#sTok").value="";mem=[];toast("已从这台设备删除");load()};
+$("#selCopy").onclick=()=>showCopy(brief(mem.filter(m=>sel.has(m.id))));
+$("#selClear").onclick=()=>{sel.clear();render()};
+$("#mCopy").onclick=()=>copy($("#mBody").textContent);
+$("#mClose").onclick=()=>$("#modal").classList.remove("on");
+$("#modal").addEventListener("click",e=>{if(e.target.id==="modal")$("#modal").classList.remove("on")});
+document.addEventListener("keydown",e=>{if(e.key==="Escape")$("#modal").classList.remove("on")});
+$("#reload").onclick=load;
+["#q","#fProj","#fSrc","#fDead"].forEach(s=>$(s).addEventListener("input",render));
+$("#typeChips").innerHTML=["",...TYPES].map(t=>`<button class="chip" type="button" data-t="${t}" aria-pressed="${t===fType}">${t||"全部"}</button>`).join("");
+$("#typeChips").addEventListener("click",e=>{const c=e.target.closest(".chip");if(!c)return;fType=c.dataset.t;document.querySelectorAll(".chip").forEach(x=>x.setAttribute("aria-pressed",x===c));render()});
+opts($("#fSrc"),SRCS);opts($("#aType"),TYPES);opts($("#aProj"),PROJS);opts($("#aSrc"),SRCS);
+$("#aType").value="决策";$("#aSrc").value="手动";
+function fillPrompt(){const repo=cfg.repo||"用户名/仓库名";$("#aiPrompt").textContent=`我的个人记忆库在 GitHub 仓库 ${repo}。请先读其中的 AGENTS.md 和 INDEX.md，回答时参考里面的有效记忆；标为“已作废”的不要当作当前事实。`}
+$("#copyPrompt").onclick=()=>copy($("#aiPrompt").textContent);
+$("#sRepo").value=cfg.repo;$("#sBranch").value=cfg.branch;$("#sTok").value=cfg.token;fillPrompt();
+function route(){const v=(location.hash||"#memories").slice(1);const ok=["memories","add","connect","settings"].includes(v)?v:"memories";
+  document.querySelectorAll(".view").forEach(s=>s.classList.toggle("on",s.id==="v-"+ok));
+  document.querySelectorAll("nav a").forEach(a=>{if(a.dataset.v===ok)a.setAttribute("aria-current","page");else a.removeAttribute("aria-current")});
+  document.body.className="on-"+ok;window.scrollTo(0,0)}
+window.addEventListener("hashchange",route);
+route();load();
+</script>
+</body>
+</html>
