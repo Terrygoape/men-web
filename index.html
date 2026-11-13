@@ -118,6 +118,27 @@ form input[type=text],form input[type=password]{width:100%;padding:10px 12px;bor
 .busy{opacity:.6;pointer-events:none}
 code{font-family:var(--f-mono);font-size:13px;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:1px 6px;word-break:break-all}
 ol.steps{padding-left:20px;display:grid;gap:6px;margin:8px 0}
+.wrap{max-width:1180px}
+.selbar div{max-width:1148px}
+.list.rows{display:block;min-width:0;gap:0;background:var(--surface);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.item{border-bottom:1px solid var(--line)}
+.item:last-child{border-bottom:0}
+.line{display:flex;align-items:center;gap:10px;padding:7px 12px;min-height:40px;cursor:pointer}
+.line:hover{background:var(--bg)}
+.line input[type=checkbox]{flex:none;width:16px;height:16px;margin:0;accent-color:var(--accent)}
+.line .pill{flex:none}
+.line .txt{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.line .m{flex:none;font-size:12px;color:var(--muted);white-space:nowrap}
+.tog{flex:none;border:0;background:none;color:var(--muted);width:24px;height:24px;border-radius:6px;cursor:pointer;font-size:12px}
+.tog:hover{background:var(--line)}
+.item.open .line .txt{white-space:normal;overflow:visible}
+.item.open .tog{transform:rotate(90deg)}
+.detail{display:none;padding:0 12px 12px 38px;gap:8px}
+.item.open .detail{display:grid}
+.detail .meta,.detail .sup,.detail .acts{grid-column:auto}
+.item.dead .txt{text-decoration:line-through;text-decoration-color:var(--dead);color:var(--muted)}
+@media (max-width:640px){.line .m{display:none}}
+@media (prefers-reduced-motion:no-preference){.tog{transition:transform .15s}}
 </style>
 </head>
 <body>
@@ -142,7 +163,7 @@ ol.steps{padding-left:20px;display:grid;gap:6px;margin:8px 0}
       <select id="fSrc"><option value="">全部</option></select>
       <label style="display:inline-flex;align-items:center;gap:4px"><input type="checkbox" id="fDead">显示已作废</label>
     </div>
-    <div class="list" id="list"><p class="empty">加载中…</p></div>
+    <div class="list rows" id="list"><p class="empty">加载中…</p></div>
   </section>
 
   <section class="view" id="v-add">
@@ -225,7 +246,7 @@ const TYPES=["规则","决策","偏好","事实"];
 const PROJS=["osiao","个人","通用"];
 const SRCS=["Claude","Claude Code","ChatGPT","Gemini","Muse","豆包","Kimi","DeepSeek","手动"];
 const LS="aimem.cfg";
-let cfg={repo:"",branch:"main",token:""}, mem=[], sel=new Set(), fType="";
+let cfg={repo:"",branch:"main",token:""}, mem=[], sel=new Set(), openSet=new Set(), fType="";
 const $=s=>document.querySelector(s);
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 function toast(m){const t=$("#toast");t.textContent=m;t.classList.add("on");clearTimeout(toast.h);toast.h=setTimeout(()=>t.classList.remove("on"),2000)}
@@ -278,18 +299,26 @@ function render(){
   const q=$("#q").value.trim().toLowerCase(),p=$("#fProj").value,s=$("#fSrc").value,showDead=$("#fDead").checked;
   const dead=m=>m.status==="已作废";
   const rows=mem.filter(m=>(!fType||m.type===fType)&&(!p||m.project===p)&&(!s||m.source===s)&&(showDead||!dead(m))&&(!q||(m.text+" "+m.project+" "+m.type).toLowerCase().includes(q)))
-               .sort((a,b)=>(b.date+b.id).localeCompare(a.date+a.id));
+               .sort((a,b)=>b.id.localeCompare(a.id));
   $("#cnt").textContent=mem.filter(m=>!dead(m)).length;
   if(cfg.repo&&cfg.token)$("#list").innerHTML=rows.length?rows.map(m=>{
     const by=m.superseded_by&&mem.find(z=>z.id===m.superseded_by), rep=m.supersedes&&mem.find(z=>z.id===m.supersedes);
-    return `<article class="card ${dead(m)?"dead":""}">
-      <input type="checkbox" aria-label="选中这条" data-sel="${esc(m.id)}" ${sel.has(m.id)?"checked":""} ${dead(m)?"disabled":""}>
-      <p class="txt">${esc(m.text)}</p>
-      <div class="meta"><span class="pill t-${esc(m.type)}">${esc(m.type||"未分类")}</span><span>${esc(m.project)}</span><span>来自 ${esc(m.source)}</span><span class="mono">${esc(m.date)}</span>${dead(m)?'<span class="pill s-dead">已作废</span>':""}</div>
-      ${by?`<div class="sup">已被新记忆取代：${esc(by.text)}</div>`:""}
-      ${rep?`<div class="sup">取代了旧记忆：${esc(rep.text)}</div>`:""}
-      <div class="acts">${dead(m)?`<button class="btn" data-revive="${esc(m.id)}" type="button">恢复有效</button>`:`<button class="btn" data-copy="${esc(m.id)}" type="button">复制</button><button class="btn" data-kill="${esc(m.id)}" type="button">标为作废</button>`}</div>
-    </article>`}).join(""):`<p class="empty">没有找到匹配的记忆。换个关键词，或者清掉筛选。</p>`;
+    const o=openSet.has(m.id);
+    return `<div class="item ${dead(m)?"dead":""} ${o?"open":""}" data-id="${esc(m.id)}">
+      <div class="line" data-toggle="${esc(m.id)}">
+        <input type="checkbox" aria-label="选中这条" data-sel="${esc(m.id)}" ${sel.has(m.id)?"checked":""} ${dead(m)?"disabled":""}>
+        <span class="pill t-${esc(m.type)}">${esc(m.type||"未分类")}</span>
+        <span class="txt" title="${esc(m.text)}">${esc(m.text)}</span>
+        <span class="m">${esc(m.project)} · ${esc(m.source)} · <span class="mono">${esc(m.date.slice(5))}</span></span>
+        <button class="tog" type="button" aria-expanded="${o}" aria-label="${o?"收起":"展开"}">▶</button>
+      </div>
+      <div class="detail">
+        <div class="meta"><span>${esc(m.project)}</span><span>来自 ${esc(m.source)}</span><span class="mono">${esc(m.date)}</span>${dead(m)?'<span class="pill s-dead">已作废</span>':""}</div>
+        ${by?`<div class="sup">已被新记忆取代：${esc(by.text)}</div>`:""}
+        ${rep?`<div class="sup">取代了旧记忆：${esc(rep.text)}</div>`:""}
+        <div class="acts">${dead(m)?`<button class="btn" data-revive="${esc(m.id)}" type="button">恢复有效</button>`:`<button class="btn" data-copy="${esc(m.id)}" type="button">复制</button><button class="btn" data-kill="${esc(m.id)}" type="button">标为作废</button>`}</div>
+      </div>
+    </div>`}).join(""):`<p class="empty">没有找到匹配的记忆。换个关键词，或者清掉筛选。</p>`;
   const n=sel.size;$("#selbar").classList.toggle("on",n>0);$("#selTxt").textContent=`已选 ${n} 条`;
   const sup=$("#aSup"),cur=sup.value;sup.length=1;mem.filter(m=>!dead(m)).forEach(m=>{const o=document.createElement("option");o.value=m.id;o.textContent=m.text.slice(0,40)+(m.text.length>40?"…":"");sup.appendChild(o)});sup.value=cur;
   const pj=$("#fProj"),pv=pj.value,all=[...new Set([...PROJS,...mem.map(m=>m.project).filter(Boolean)])];pj.length=1;opts(pj,all);pj.value=pv;
@@ -307,7 +336,8 @@ function newId(){const d=new Date(),z=n=>String(n).padStart(2,"0");return `${d.g
 const today=()=>{const d=new Date(),z=n=>String(n).padStart(2,"0");return `${d.getFullYear()}-${z(d.getMonth()+1)}-${z(d.getDate())}`};
 
 $("#list").addEventListener("click",async e=>{
-  const b=e.target.closest("button,input");if(!b)return;
+  const b=e.target.closest("button:not(.tog),input");
+  if(!b){const l=e.target.closest("[data-toggle]");if(l){const id=l.dataset.toggle;openSet.has(id)?openSet.delete(id):openSet.add(id);render()}return}
   if(b.dataset.sel){const id=b.dataset.sel;b.checked?sel.add(id):sel.delete(id);render();return}
   if(b.dataset.copy){copy(mem.find(m=>m.id===b.dataset.copy).text);return}
   const id=b.dataset.kill||b.dataset.revive;if(!id)return;
